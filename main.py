@@ -156,3 +156,87 @@ class ReLU(Layer):#ReLu activation function
             for j in range(self.x.cols):
                 grad_input.data[i][j] = grad_output.data[i][j] if self.x.data[i][j] > 0 else 0
         return grad_input
+
+class Sequential(Layer):
+    def __init__(self, *layers):
+        self.layers = layers
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer.forward(x)
+        return x
+
+    def backward(self, grad_output, lr=0.01):
+        for layer in reversed(self.layers):
+            grad_output = layer.backward(grad_output, lr)
+        return grad_output
+
+class MSELoss:
+    def forward(self, y_pred, y_true):
+        self.y_pred = y_pred
+        self.y_true = y_true
+        loss = 0.0
+        for i in range(y_pred.rows):
+            for j in range(y_pred.cols):
+                diff = y_pred.data[i][j] - y_true.data[i][j]
+                loss += diff * diff
+        return loss / (y_pred.rows * y_pred.cols)
+
+    def backward(self):
+        grad = Matrix(self.y_pred.rows, self.y_pred.cols)
+        for i in range(self.y_pred.rows):
+            for j in range(self.y_pred.cols):
+                grad.data[i][j] = 2 * (self.y_pred.data[i][j] - self.y_true.data[i][j]) / (self.y_pred.rows * self.y_pred.cols)
+        return grad
+
+class MathUtils:
+    @staticmethod
+    def exp(x, terms=10):
+        """Approximate exponential using Taylor series"""
+        result = 1.0
+        term = 1.0
+        for n in range(1, terms):
+            term *= x / n
+            result += term
+        return result
+
+
+class Sigmoid(Layer):
+    def forward(self, x):
+        self.x = x
+        out = Matrix(x.rows, x.cols)
+        for i in range(x.rows):
+            for j in range(x.cols):
+                e = MathUtils.exp(-x.data[i][j])
+                out.data[i][j] = 1.0 / (1.0 + e)
+        self.out = out
+        return out
+
+    def backward(self, grad_output, lr=0.01):
+        grad_input = Matrix(self.x.rows, self.x.cols)
+        for i in range(self.x.rows):
+            for j in range(self.x.cols):
+                s = self.out.data[i][j]
+                grad_input.data[i][j] = grad_output.data[i][j] * s * (1 - s)
+        return grad_input
+
+
+class Tanh(Layer):
+    def forward(self, x):
+        self.x = x
+        out = Matrix(x.rows, x.cols)
+        for i in range(x.rows):
+            for j in range(x.cols):
+                e_pos = MathUtils.exp(x.data[i][j])
+                e_neg = MathUtils.exp(-x.data[i][j])
+                out.data[i][j] = (e_pos - e_neg) / (e_pos + e_neg)
+        self.out = out
+        return out
+
+    def backward(self, grad_output, lr=0.01):
+        grad_input = Matrix(self.x.rows, self.x.cols)
+        for i in range(self.x.rows):
+            for j in range(self.x.cols):
+                t = self.out.data[i][j]
+                grad_input.data[i][j] = grad_output.data[i][j] * (1 - t * t)
+        return grad_input
