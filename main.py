@@ -62,7 +62,6 @@ class Matrix:
                 result.data[i][j] = self.data[i][j] + other.data[i][j]
         return result
     
-    @staticmethod
     def __sub__(self, other):  #used __sub__ for - operator to be used as a function 
         result = Matrix(self.rows, self.cols)
         for i in range(self.rows):
@@ -113,8 +112,6 @@ class Matrix:
     
     def __str__(self):#makes you able to print matrix using print(obj_name) function
         return "\n".join(str(row) for row in self.data)
-
-
 
 """Layers"""
 class Layer:
@@ -200,7 +197,6 @@ class MathUtils:
             result += term
         return result
 
-
 class Sigmoid(Layer):
     def forward(self, x):
         self.x = x
@@ -218,8 +214,6 @@ class Sigmoid(Layer):
             for j in range(self.x.cols):
                 s = self.out.data[i][j]
                 grad_input.data[i][j] = grad_output.data[i][j] * s * (1 - s)
-        return grad_input
-
 
 class Tanh(Layer):
     def forward(self, x):
@@ -240,3 +234,61 @@ class Tanh(Layer):
                 t = self.out.data[i][j]
                 grad_input.data[i][j] = grad_output.data[i][j] * (1 - t * t)
         return grad_input
+        return grad_input
+
+class Dataset:
+    def __init__(self, X, Y):
+        self.X = X
+        self.Y = Y
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx]
+
+class Model:
+    def __init__(self, layers):
+        self.network = Sequential(*layers)
+
+    def forward(self, x):
+        return self.network.forward(x)
+
+    def backward(self, grad, lr):
+        return self.network.backward(grad, lr)
+
+class Trainer:
+    def __init__(self, model, loss_fn, lr=0.01, epochs=100):
+        self.model = model
+        self.loss_fn = loss_fn
+        self.lr = lr
+        self.epochs = epochs
+
+    def fit(self, dataset, verbose=True):
+        for epoch in range(self.epochs):
+            total_loss = 0
+            for i in range(len(dataset)):
+                x, y_true = dataset[i]
+
+                # Forward
+                y_pred = self.model.forward(x)
+                total_loss += self.loss_fn.forward(y_pred, y_true)
+
+                # Backward
+                grad_loss = self.loss_fn.backward()
+                self.model.backward(grad_loss, self.lr)
+
+            if verbose and epoch % 50 == 0:
+                print(f"Epoch {epoch}, Loss={total_loss/len(dataset)}")
+
+    def predict(self, X):
+        return [self.model.forward(x) for x in X]
+
+    def evaluate(self, dataset):
+        total_loss = 0
+        for i in range(len(dataset)):
+            x, y_true = dataset[i]
+            y_pred = self.model.forward(x)
+            total_loss += self.loss_fn.forward(y_pred, y_true)
+        return total_loss / len(dataset)
+
