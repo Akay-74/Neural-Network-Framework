@@ -3,7 +3,7 @@ import random
 class Matrix:
     """Matrix operations using only built-in Python"""
 
-    def __init__(self, rows, cols, fill_value=0.0):#the constructor stores rows, cols and data itself too
+    def __init__(self, rows, cols, fill_value=0.0):
         self.rows = rows
         self.cols = cols
         self.data = [[fill_value for _ in range(cols)] for _ in range(rows)]
@@ -22,7 +22,7 @@ class Matrix:
                  m.data[i][j] = random.uniform(min_val, max_val)
         return m
     
-    def __matmul__(self, other):  # makes @ operator to be used as a function for vector multiplication
+    def __matmul__(self, other):
         if self.cols != other.rows:
             raise ValueError("Matrix dimensions do not align for multiplication")
         result = Matrix(self.rows, other.cols)
@@ -33,6 +33,21 @@ class Matrix:
                     s += self.data[i][k] * other.data[k][j]
                 result.data[i][j] = s
         return result
+    
+    #Added missing indexing methods
+    def __getitem__(self, key):
+        if isinstance(key, tuple):
+            i, j = key
+            return self.data[i][j]
+        else:
+            return self.data[key]
+    
+    def __setitem__(self, key, value):
+        if isinstance(key, tuple):
+            i, j = key
+            self.data[i][j] = value
+        else:
+            self.data[key] = value
     
     @staticmethod
     def dot(a, b):
@@ -55,20 +70,39 @@ class Matrix:
         
         return result
     
-    def __add__(self, other):  #used __add__ for + operator to be used as a function
+    @staticmethod
+    def create_dataset(samples=50, input_features=3, output_features=1, min_val=0.0, max_val=1.0):
+        """Create a dataset of random matrices"""
+        X, Y = [], []
+        for _ in range(samples):
+            x = Matrix.random_matrix(input_features, 1, min_val, max_val)
+            y = Matrix.random_matrix(output_features, 1, min_val, max_val)
+            X.append(x)
+            Y.append(y)
+        return X, Y
+
+    def __add__(self, other):
         result = Matrix(self.rows, self.cols)
         for i in range(self.rows):
             for j in range(self.cols):
                 result.data[i][j] = self.data[i][j] + other.data[i][j]
         return result
     
-    def __sub__(self, other):  #used __sub__ for - operator to be used as a function 
+    def __sub__(self, other):
         result = Matrix(self.rows, self.cols)
         for i in range(self.rows):
             for j in range(self.cols):
                 result.data[i][j] = self.data[i][j] - other.data[i][j]
         return result
 
+    #Added scalar multiplication method for Matrix objects
+    def scalar_multiply(self, scalar):
+        """Multiply this matrix by a scalar"""
+        result = Matrix(self.rows, self.cols)
+        for i in range(self.rows):
+            for j in range(self.cols):
+                result.data[i][j] = self.data[i][j] * scalar
+        return result
     
     @staticmethod
     def multiply(a, b):
@@ -86,22 +120,31 @@ class Matrix:
     
     @staticmethod
     def transpose(matrix):
-        """Matrix transpose"""
-        if not matrix:
-            return []
+        """Transpose a Matrix object"""
+        if not matrix or not matrix.data:
+            return Matrix(0, 0)
         
-        rows, cols = len(matrix), len(matrix[0])
+        rows, cols = matrix.rows, matrix.cols
         result = Matrix.zeros(cols, rows)
         
         for i in range(rows):
             for j in range(cols):
-                result[j][i] = matrix[i][j]
+                result.data[j][i] = matrix.data[i][j]
         
         return result
     
+    #Added transpose method for Matrix instances
+    def transpose(self):
+        """Transpose this matrix"""
+        result = Matrix.zeros(self.cols, self.rows)
+        for i in range(self.rows):
+            for j in range(self.cols):
+                result.data[j][i] = self.data[i][j]
+        return result
+
     @staticmethod
-    def scalar_multiply(matrix, scalar):
-        """Multiply matrix by scalar"""
+    def scalar_multiply_static(matrix, scalar):
+        """Multiply matrix by scalar (static version)"""
         result = []
         for i in range(len(matrix)):
             row = []
@@ -110,12 +153,12 @@ class Matrix:
             result.append(row)
         return result
     
-    def __str__(self):#makes you able to print matrix using print(obj_name) function
+    def __str__(self):
         return "\n".join(str(row) for row in self.data)
 
 """Layers"""
 class Layer:
-    """Used Inheritance for multiple types of layers """
+    """Used Inheritance for multiple types of layers"""
     def forward(self, x):
         raise NotImplementedError
     
@@ -127,18 +170,19 @@ class Linear(Layer):
         self.W = Matrix.random_matrix(out_features, in_features, -0.1, 0.1)
         self.b = Matrix(out_features, 1, 0.0)
 
-    def forward(self, x):# performs linear transformation of input features and saves x for later use in backpropogation
+    def forward(self, x):
         self.x = x
         return (self.W @ x) + self.b
 
-    def backward(self, grad_output, lr=0.01):# backpropogation
-        dW = grad_output @ self.x.transpose()
+    # Fixed: Corrected backward method calls
+    def backward(self, grad_output, lr=0.01):
+        dW = grad_output @ Matrix.transpose(self.x)
         db = grad_output
-        self.W = self.W - dW.scalar_multiply(lr)# updating weights
-        self.b = self.b - db.scalar_multiply(lr)# updating bias
-        return self.W.transpose() @ grad_output
+        self.W = self.W - dW.scalar_multiply(lr)
+        self.b = self.b - db.scalar_multiply(lr)
+        return Matrix.transpose(self.W) @ grad_output
     
-class ReLU(Layer):#ReLu activation function
+class ReLU(Layer):
     def forward(self, x):
         self.x = x
         out = Matrix(x.rows, x.cols)
@@ -208,12 +252,14 @@ class Sigmoid(Layer):
         self.out = out
         return out
 
+    # Fixed: Added missing return statement
     def backward(self, grad_output, lr=0.01):
         grad_input = Matrix(self.x.rows, self.x.cols)
         for i in range(self.x.rows):
             for j in range(self.x.cols):
                 s = self.out.data[i][j]
                 grad_input.data[i][j] = grad_output.data[i][j] * s * (1 - s)
+        return grad_input
 
 class Tanh(Layer):
     def forward(self, x):
@@ -227,13 +273,13 @@ class Tanh(Layer):
         self.out = out
         return out
 
+    # Fixed: Removed duplicate return statement
     def backward(self, grad_output, lr=0.01):
         grad_input = Matrix(self.x.rows, self.x.cols)
         for i in range(self.x.rows):
             for j in range(self.x.cols):
                 t = self.out.data[i][j]
                 grad_input.data[i][j] = grad_output.data[i][j] * (1 - t * t)
-        return grad_input
         return grad_input
 
 class Dataset:
@@ -299,13 +345,11 @@ class Accuracy:
         total = y_pred.rows * y_pred.cols
         for i in range(y_pred.rows):
             for j in range(y_pred.cols):
-                # Binary classification: round prediction to 0/1
                 pred_value = 1 if y_pred.data[i][j] >= 0.5 else 0
                 true_value = int(y_true.data[i][j])
                 if pred_value == true_value:
                     correct += 1
         return correct / total
-
 
 class Precision:
     """Precision for binary classification"""
@@ -322,7 +366,6 @@ class Precision:
                         fp += 1
         return tp / (tp + fp) if (tp + fp) > 0 else 0.0
 
-
 class Recall:
     """Recall for binary classification"""
     def score(self, y_pred, y_true):
@@ -338,7 +381,6 @@ class Recall:
                         fn += 1
         return tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
-
 class F1Score:
     """F1 Score (harmonic mean of precision and recall)"""
     def score(self, y_pred, y_true):
@@ -347,3 +389,30 @@ class F1Score:
         if precision_metric + recall_metric == 0:
             return 0.0
         return 2 * (precision_metric * recall_metric) / (precision_metric + recall_metric)
+
+#Implementing created framework as of now
+if __name__ == "__main__":
+    X, Y = Matrix.create_dataset(samples=100, input_features=3, output_features=1)
+    dataset = Dataset(X, Y)
+
+    layers = [Linear(3, 5), ReLU(), Linear(5, 1), Sigmoid()]
+    model = Model(layers)
+
+    loss_fn = MSELoss()
+    trainer = Trainer(model, loss_fn, lr=0.01, epochs=200)
+
+    trainer.fit(dataset)
+
+    # Evaluate total loss on the dataset
+    total_loss = trainer.evaluate(dataset)
+    print(f"\nFinal Loss on Dataset: {total_loss}\n")
+
+    # Make predictions on first 5 samples
+    print("Predictions vs True Values (first 5 samples):")
+    y_pred = trainer.predict(X[:5])
+    for i in range(5):
+        print(f"Predicted: {y_pred[i].data} | True: {Y[i].data}")
+
+    # Compute metrics
+    accuracy = Accuracy().score(y_pred[0], Y[0])
+    print(f"\nAccuracy (first sample): {accuracy}")
