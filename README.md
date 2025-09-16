@@ -1,4 +1,4 @@
-a# Features
+# Features
 
 ## Matrix Class
 - Custom implementation of a 2D matrix with operator overloading (`@`, `+`, `-`) and utility functions.
@@ -11,9 +11,21 @@ a# Features
 ## Loss Function
 - Mean Squared Error (`MSELoss`)
 
-## Training Utilities
-- Trainer class with forward/backward propagation and parameter updates  
-- Model wrapper for easy usage
+- **Training Utilities**
+  - `Trainer` class for forward/backward propagation and parameter updates
+  - `Model` wrapper for a simple API
 
-## Metrics
-- Accuracy, Precision, Recall, F1 Score
+- **Metrics**
+  - Accuracy
+  - Precision
+  - Recall
+  - F1 Score
+
+---
+
+## Getting Started
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Akay-74/Neural-Network-Framework.git
+cd Neural-Network-Framework
