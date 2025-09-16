@@ -1,11 +1,11 @@
-# 🧠 Neural Network Framework
+# Neural Network Framework
 
 A lightweight neural network framework built **from scratch in Python** without external libraries.  
 It provides a custom `Matrix` implementation, neural network layers, loss functions, metrics, and a simple training loop — perfect for learning the internals of deep learning.
 
 ---
 
-## ✨ Features
+## Features
 
 - **Matrix Class**
   - 2D matrix with operator overloading (`+`, `-`, `@`, etc.)
@@ -31,7 +31,7 @@ It provides a custom `Matrix` implementation, neural network layers, loss functi
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 ```bash
