@@ -1,23 +1,15 @@
-# Neural Network Framework
+# Features
 
-A lightweight neural network framework built **from scratch in Python** without external libraries.  
-It provides a custom `Matrix` implementation, neural network layers, loss functions, metrics, and a simple training loop — perfect for learning the internals of deep learning.
+## Matrix Class
+- Custom implementation of a 2D matrix with operator overloading (`@`, `+`, `-`) and utility functions.
 
----
+## Layers
+- Linear (fully connected)  
+- ReLU, Sigmoid, Tanh activation functions  
+- Sequential container to stack layers
 
-## Features
-
-- **Matrix Class**
-  - 2D matrix with operator overloading (`+`, `-`, `@`, etc.)
-  - Utilities for initialization and manipulation
-
-- **Layers**
-  - Linear (Fully Connected)
-  - Activation: ReLU, Sigmoid, Tanh
-  - `Sequential` container for stacking layers
-
-- **Loss**
-  - Mean Squared Error (`MSELoss`)
+## Loss Function
+- Mean Squared Error (`MSELoss`)
 
 - **Training Utilities**
   - `Trainer` class for forward/backward propagation and parameter updates
