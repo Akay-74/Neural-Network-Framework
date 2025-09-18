@@ -2,9 +2,6 @@
 Utility functions for mathematical operations
 """
 
-
-import math
-
 class MathUtils:
     @staticmethod
     def exp(x, terms=20):
