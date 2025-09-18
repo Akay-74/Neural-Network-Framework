@@ -2,7 +2,6 @@
 Training utilities for neural networks
 """
 
-
 class Trainer:
     """Training loop manager"""
     def __init__(self, model, loss_fn, lr=0.01, epochs=100):
