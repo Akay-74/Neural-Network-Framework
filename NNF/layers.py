@@ -15,10 +15,12 @@ class Layer:
 
 
 class Linear(Layer):
-    """Fully connected (dense) layer"""
+    """Fully connected layer"""
     def __init__(self, in_features, out_features):
-        self.W = Matrix.random_matrix(out_features, in_features, -0.1, 0.1)
-        self.b = Matrix(out_features, 1, 0.0)
+        # Initialize weights with proper Xavier initialization
+        limit = (6.0 / (in_features + out_features)) ** 0.5
+        self.W = Tensor([[random.uniform(-limit, limit) for _ in range(in_features)] for _ in range(out_features)])
+        self.b = Tensor([[0.0] for _ in range(out_features)])
 
     def forward(self, x):
         self.x = x
@@ -65,7 +67,6 @@ class Tanh(Layer):
 
 
 class LeakyReLU(Layer):
-    """Leaky ReLU: small slope for negative inputs, normal ReLU for positives"""
     def __init__(self, alpha=0.01):
         self.alpha = alpha
 
@@ -78,7 +79,6 @@ class LeakyReLU(Layer):
 
 
 class ELU(Layer):
-    """ELU: smooth negative slope using exponent, avoids dead neurons"""
     def __init__(self, alpha=1.0):
         self.alpha = alpha
 
@@ -106,25 +106,24 @@ class GELU(Layer):
         return x.apply(lambda v: 0.5 * v * (1 + MathUtils.tanh(sqrt_2_over_pi * (v + 0.044715 * v ** 3))))
 
     def backward(self, grad_output, lr=0.01):
-        grad_input = Matrix(self.x.rows, self.x.cols)
-        for i in range(self.x.rows):
-            for j in range(self.x.cols):
-                # Approximate derivative of GELU
-                x_val = self.x.data[i][j]
-                sqrt_2_over_pi = 0.7978845608
-                tanh_input = sqrt_2_over_pi * (x_val + 0.044715 * x_val**3)
-                
-                # Tanh and sech²
-                e_pos = MathUtils.exp(tanh_input)
-                e_neg = MathUtils.exp(-tanh_input)
-                tanh_val = (e_pos - e_neg) / (e_pos + e_neg)
-                sech_squared = 1 - tanh_val * tanh_val
-                
-                # Inner derivative term
-                inner_derivative = sqrt_2_over_pi * (1 + 3 * 0.044715 * x_val**2)
-                
-                # Final derivative expression
-                gelu_derivative = 0.5 * (1 + tanh_val) + 0.5 * x_val * sech_squared * inner_derivative
-                
-                grad_input.data[i][j] = grad_output.data[i][j] * gelu_derivative
-        return grad_input
+        sqrt_2_over_pi = 0.7978845608
+        def gelu_derivative(v):
+            tanh_val = MathUtils.tanh(sqrt_2_over_pi * (v + 0.044715 * v ** 3))
+            sech2 = 1 - tanh_val * tanh_val
+            return 0.5 * (1 + tanh_val) + 0.5 * v * sech2 * sqrt_2_over_pi * (1 + 3 * 0.044715 * v ** 2)
+        return grad_output * self.x.apply(gelu_derivative)
+
+
+class Sequential(Layer):
+    def __init__(self, *layers):
+        self.layers = layers
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer.forward(x)
+        return x
+
+    def backward(self, grad_output, lr=0.01):
+        for layer in reversed(self.layers):
+            grad_output = layer.backward(grad_output, lr)
+        return grad_output
