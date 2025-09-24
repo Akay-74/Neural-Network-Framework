@@ -1,7 +1,7 @@
 """
 Evaluation metrics for model performance
 """
-
+import random
 
 class Accuracy:
     """Classification accuracy metric"""

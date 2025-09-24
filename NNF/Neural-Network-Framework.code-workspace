@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "Neural-Network-Framework",
+			"path": ".."
+		},
+		{
+			"name": "NNF",
+			"path": "../../NNF"
+		}
+	],
+	"settings": {}
+}

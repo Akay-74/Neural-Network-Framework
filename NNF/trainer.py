@@ -1,6 +1,7 @@
 """
 Training utilities for neural networks
 """
+import random
 
 class Trainer:
     """Training loop manager"""
@@ -10,33 +11,37 @@ class Trainer:
         self.lr = lr
         self.epochs = epochs
 
-    def fit(self, dataset, verbose=True):
-        """Train the model on the given dataset"""
-        for epoch in range(self.epochs):
+    def fit(self, X, Y, verbose=True):
+        """
+        Train the model on dataset X, Y
+        X, Y: lists of Tensors
+        """
+        n_samples = len(X)
+        for epoch in range(1, self.epochs + 1):
             total_loss = 0
-            for i in range(len(dataset)):
-                x, y_true = dataset[i]
-
+            for x, y_true in zip(X, Y):
                 # Forward pass
                 y_pred = self.model.forward(x)
-                total_loss += self.loss_fn.forward(y_pred, y_true)
+                loss = self.loss_fn.forward(y_pred, y_true)
+                total_loss += loss
 
                 # Backward pass
                 grad_loss = self.loss_fn.backward()
                 self.model.backward(grad_loss, self.lr)
 
-            if verbose and epoch % 50 == 0:
-                print(f"Epoch {epoch}, Loss={total_loss/len(dataset)}")
+            avg_loss = total_loss / n_samples
+            if verbose and (epoch % 10 == 0 or epoch == 1 or epoch == self.epochs):
+                print(f"Epoch {epoch}/{self.epochs} | Loss: {avg_loss:.6f}")
 
     def predict(self, X):
-        """Make predictions on input data"""
+        """Return predictions for input list of Tensors"""
         return [self.model.forward(x) for x in X]
 
-    def evaluate(self, dataset):
-        """Evaluate the model on a dataset"""
+    def evaluate(self, X, Y):
+        """Compute average loss on dataset"""
         total_loss = 0
-        for i in range(len(dataset)):
-            x, y_true = dataset[i]
+        n_samples = len(X)
+        for x, y_true in zip(X, Y):
             y_pred = self.model.forward(x)
             total_loss += self.loss_fn.forward(y_pred, y_true)
-        return total_loss / len(dataset)
+        return total_loss / n_samples

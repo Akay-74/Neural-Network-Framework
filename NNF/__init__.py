@@ -3,31 +3,31 @@ NNF (Neural Network Framework) - A lightweight neural network library built with
 """
 
 # Core components
-from .matrix import Matrix
-from .layers import Layer, Linear, ReLU, Sigmoid, Tanh, Sequential
-from .losses import MSELoss
+from .tensor import Tensor
+from .layers import Layer, Linear, ReLU, Sigmoid, Tanh, Sequential, LeakyReLU, ELU, Swish, GELU
+from .losses import MSELoss, MAELoss, BinaryCrossEntropyLoss, CrossEntropyLoss
 from .model import Model
 from .trainer import Trainer
-from .dataset import Dataset
 from .metrics import Accuracy, Precision, Recall, F1Score
 from .utils import MathUtils
 
 __version__ = "1.0.0"
-__author__ = "Your Name"
+__author__ = "Aayaan, Shreyash"
 
 # Convenience imports for common usage patterns
 __all__ = [
-    # Core matrix operations
-    'Matrix',
+    # Core tensor operations
+    'Tensor',
     
     # Layers
-    'Layer', 'Linear', 'ReLU', 'Sigmoid', 'Tanh', 'Sequential',
+    'Layer', 'Linear', 'ReLU', 'Sigmoid', 'Tanh', 'Sequential', 
+    'LeakyReLU', 'ELU', 'Swish', 'GELU',
     
     # Loss functions
-    'MSELoss',
+    'MSELoss', 'MAELoss', 'BinaryCrossEntropyLoss', 'CrossEntropyLoss',
     
     # Model and training
-    'Model', 'Trainer', 'Dataset',
+    'Model', 'Trainer',
     
     # Metrics
     'Accuracy', 'Precision', 'Recall', 'F1Score',
