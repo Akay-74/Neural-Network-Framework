@@ -12,6 +12,7 @@ from sklearn.metrics import accuracy_score, classification_report
 import tensorflow as tf
 from tensorflow import keras
 import time
+import random
 
 # Import your NNF framework
 from NNF import Tensor, Linear, ReLU, Sigmoid, Model, Trainer, MSELoss
@@ -201,4 +202,5 @@ def main():
 if __name__ == "__main__":
     np.random.seed(42)
     tf.random.set_seed(42)
+    random.seed(42)  
     main()
