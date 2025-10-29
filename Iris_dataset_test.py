@@ -1,5 +1,5 @@
 """
-Iris Dataset Comparison: NNF vs TensorFlow
+Iris Dataset Comparison: Neural Network Framework (NNF) vs TensorFlow
 Compare performance of custom NNF framework against TensorFlow on Iris classification
 """
 
@@ -54,7 +54,7 @@ def convert_to_nnf_format(X, y):
 
 def create_nnf_model():
     """Create neural network using NNF framework"""
-    print("\nCreating NNF model...")
+    print("\nCreating Neural Network Framework (NNF) model...")
     
     # Simple 3-layer network: 4 -> 8 -> 4 -> 3
     model = Model([
@@ -63,7 +63,7 @@ def create_nnf_model():
         Linear(8, 4),
         ReLU(),
         Linear(4, 3),
-        Sigmoid()  # Using sigmoid for output (could use softmax but not implemented)
+        Sigmoid()
     ])
     
     return model
@@ -80,7 +80,7 @@ def create_tensorflow_model():
     
     model.compile(
         optimizer='adam',
-        loss='mse',  # Using MSE to match NNF
+        loss='mse',
         metrics=['accuracy']
     )
     
@@ -88,7 +88,7 @@ def create_tensorflow_model():
 
 def train_nnf_model(model, X_train, y_train, epochs=100, lr=0.01):
     """Train NNF model and track metrics"""
-    print(f"\nTraining NNF model for {epochs} epochs...")
+    print(f"\nTraining Neural Network Framework (NNF) model for {epochs} epochs...")
     
     loss_fn = MSELoss()
     trainer = Trainer(model, loss_fn, lr=lr, epochs=epochs)
@@ -97,7 +97,7 @@ def train_nnf_model(model, X_train, y_train, epochs=100, lr=0.01):
     trainer.fit(X_train, y_train, verbose=True)
     training_time = time.time() - start_time
     
-    print(f"NNF training completed in {training_time:.2f} seconds")
+    print(f"Neural Network Framework (NNF) training completed in {training_time:.2f} seconds")
     return training_time
 
 def train_tensorflow_model(model, X_train, y_train, epochs=100):
@@ -119,7 +119,7 @@ def train_tensorflow_model(model, X_train, y_train, epochs=100):
 
 def evaluate_nnf_model(model, X_test, y_test):
     """Evaluate NNF model performance"""
-    print("\nEvaluating NNF model...")
+    print("\nEvaluating Neural Network Framework (NNF) model...")
     
     # Get predictions
     predictions = []
@@ -152,7 +152,7 @@ def evaluate_nnf_model(model, X_test, y_test):
     # Calculate accuracy
     accuracy = sum(p == t for p, t in zip(pred_classes, true_classes)) / len(pred_classes)
     
-    return accuracy, pred_classes, true_classes
+    return accuracy, pred_classes, true_classes, predictions
 
 def evaluate_tensorflow_model(model, X_test, y_test_onehot, y_test):
     """Evaluate TensorFlow model performance"""
@@ -165,50 +165,135 @@ def evaluate_tensorflow_model(model, X_test, y_test_onehot, y_test):
     # Calculate accuracy
     accuracy = accuracy_score(y_test, pred_classes)
     
-    return accuracy, pred_classes
+    return accuracy, pred_classes, predictions
 
 def plot_comparison(nnf_accuracy, tf_accuracy, nnf_time, tf_time):
-    """Create comparison plots"""
+    """Create comparison plots for accuracy and training time"""
     print("\nCreating comparison plots...")
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     
     # Accuracy comparison
-    models = ['NNF', 'TensorFlow']
+    models = ['Neural Network\nFramework (NNF)', 'TensorFlow']
     accuracies = [nnf_accuracy, tf_accuracy]
-    colors = ['skyblue', 'lightcoral']
+    colors = ['#4A90E2', '#E74C3C']
     
-    bars1 = ax1.bar(models, accuracies, color=colors)
-    ax1.set_ylabel('Accuracy')
-    ax1.set_title('Model Accuracy Comparison')
-    ax1.set_ylim(0, 1)
+    bars1 = ax1.bar(models, accuracies, color=colors, width=0.6, edgecolor='black', linewidth=1.5)
+    ax1.set_ylabel('Accuracy', fontsize=12, fontweight='bold')
+    ax1.set_title('Model Accuracy Comparison', fontsize=14, fontweight='bold', pad=20)
+    ax1.set_ylim(0, 1.1)
+    ax1.grid(axis='y', alpha=0.3, linestyle='--')
+    ax1.set_axisbelow(True)
     
     # Add value labels on bars
     for bar, acc in zip(bars1, accuracies):
         height = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{acc:.3f}', ha='center', va='bottom')
+        ax1.text(bar.get_x() + bar.get_width()/2., height + 0.02,
+                f'{acc:.4f}', ha='center', va='bottom', fontsize=11, fontweight='bold')
     
     # Training time comparison
     times = [nnf_time, tf_time]
-    bars2 = ax2.bar(models, times, color=colors)
-    ax2.set_ylabel('Training Time (seconds)')
-    ax2.set_title('Training Time Comparison')
+    bars2 = ax2.bar(models, times, color=colors, width=0.6, edgecolor='black', linewidth=1.5)
+    ax2.set_ylabel('Training Time (seconds)', fontsize=12, fontweight='bold')
+    ax2.set_title('Training Time Comparison', fontsize=14, fontweight='bold', pad=20)
+    ax2.grid(axis='y', alpha=0.3, linestyle='--')
+    ax2.set_axisbelow(True)
     
     # Add value labels on bars
     for bar, time_val in zip(bars2, times):
         height = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                f'{time_val:.2f}s', ha='center', va='bottom')
+        ax2.text(bar.get_x() + bar.get_width()/2., height * 0.02,
+                f'{time_val:.2f}s', ha='center', va='bottom', fontsize=11, fontweight='bold')
     
     plt.tight_layout()
+    plt.savefig('model_comparison.png', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def plot_predictions_comparison(X_test, y_test, nnf_pred, tf_pred, nnf_pred_probs, tf_pred_probs):
+    """Create visualization comparing actual vs predicted classes for both models"""
+    print("\nCreating predictions comparison visualization...")
+    
+    # Use first two features for 2D visualization (Sepal length and Sepal width)
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
+    class_names = ['Setosa', 'Versicolor', 'Virginica']
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1']
+    markers = ['o', 's', '^']
+    
+    # Plot 1: Actual Data Points
+    ax1 = axes[0]
+    for class_idx in range(3):
+        mask = y_test == class_idx
+        ax1.scatter(X_test[mask, 0], X_test[mask, 1], 
+                   c=colors[class_idx], marker=markers[class_idx],
+                   label=class_names[class_idx], s=100, 
+                   edgecolors='black', linewidth=1.5, alpha=0.7)
+    ax1.set_xlabel('Sepal Length (standardized)', fontsize=11, fontweight='bold')
+    ax1.set_ylabel('Sepal Width (standardized)', fontsize=11, fontweight='bold')
+    ax1.set_title('Actual Data Points', fontsize=13, fontweight='bold', pad=15)
+    ax1.legend(loc='best', frameon=True, shadow=True)
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Plot 2: Neural Network Framework (NNF) Predictions
+    ax2 = axes[1]
+    for class_idx in range(3):
+        mask = np.array(nnf_pred) == class_idx
+        # Mark correct and incorrect predictions
+        correct_mask = mask & (np.array(nnf_pred) == y_test)
+        incorrect_mask = mask & (np.array(nnf_pred) != y_test)
+        
+        if np.any(correct_mask):
+            ax2.scatter(X_test[correct_mask, 0], X_test[correct_mask, 1],
+                       c=colors[class_idx], marker=markers[class_idx],
+                       label=f'{class_names[class_idx]} (Correct)', s=100,
+                       edgecolors='black', linewidth=1.5, alpha=0.7)
+        if np.any(incorrect_mask):
+            ax2.scatter(X_test[incorrect_mask, 0], X_test[incorrect_mask, 1],
+                       c=colors[class_idx], marker='x',
+                       label=f'{class_names[class_idx]} (Wrong)', s=150,
+                       edgecolors='red', linewidth=3)
+    
+    ax2.set_xlabel('Sepal Length (standardized)', fontsize=11, fontweight='bold')
+    ax2.set_ylabel('Sepal Width (standardized)', fontsize=11, fontweight='bold')
+    ax2.set_title('Neural Network Framework (NNF)\nPredictions', fontsize=13, fontweight='bold', pad=15)
+    ax2.legend(loc='best', frameon=True, shadow=True, fontsize=8)
+    ax2.grid(True, alpha=0.3, linestyle='--')
+    
+    # Plot 3: TensorFlow Predictions
+    ax3 = axes[2]
+    for class_idx in range(3):
+        mask = tf_pred == class_idx
+        # Mark correct and incorrect predictions
+        correct_mask = mask & (tf_pred == y_test)
+        incorrect_mask = mask & (tf_pred != y_test)
+        
+        if np.any(correct_mask):
+            ax3.scatter(X_test[correct_mask, 0], X_test[correct_mask, 1],
+                       c=colors[class_idx], marker=markers[class_idx],
+                       label=f'{class_names[class_idx]} (Correct)', s=100,
+                       edgecolors='black', linewidth=1.5, alpha=0.7)
+        if np.any(incorrect_mask):
+            ax3.scatter(X_test[incorrect_mask, 0], X_test[incorrect_mask, 1],
+                       c=colors[class_idx], marker='x',
+                       label=f'{class_names[class_idx]} (Wrong)', s=150,
+                       edgecolors='red', linewidth=3)
+    
+    ax3.set_xlabel('Sepal Length (standardized)', fontsize=11, fontweight='bold')
+    ax3.set_ylabel('Sepal Width (standardized)', fontsize=11, fontweight='bold')
+    ax3.set_title('TensorFlow Predictions', fontsize=13, fontweight='bold', pad=15)
+    ax3.legend(loc='best', frameon=True, shadow=True, fontsize=8)
+    ax3.grid(True, alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    plt.savefig('predictions_comparison.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 def main():
     """Main comparison function"""
-    print("=" * 60)
-    print("IRIS DATASET COMPARISON: NNF vs TensorFlow")
-    print("=" * 60)
+    print("=" * 70)
+    print("IRIS DATASET COMPARISON")
+    print("Neural Network Framework (NNF) vs TensorFlow")
+    print("=" * 70)
     
     # Prepare data
     X_train, X_test, y_train, y_test, y_train_onehot, y_test_onehot = prepare_iris_data()
@@ -238,14 +323,14 @@ def main():
                                                          epochs=epochs)
     
     # Evaluate models
-    nnf_accuracy, nnf_pred, nnf_true = evaluate_nnf_model(nnf_model, X_test_nnf, y_test_nnf)
-    tf_accuracy, tf_pred = evaluate_tensorflow_model(tf_model, X_test, y_test_onehot, y_test)
+    nnf_accuracy, nnf_pred, nnf_true, nnf_pred_probs = evaluate_nnf_model(nnf_model, X_test_nnf, y_test_nnf)
+    tf_accuracy, tf_pred, tf_pred_probs = evaluate_tensorflow_model(tf_model, X_test, y_test_onehot, y_test)
     
     # Print results
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 70)
     print("FINAL RESULTS")
-    print("=" * 60)
-    print(f"NNF Framework:")
+    print("=" * 70)
+    print(f"Neural Network Framework (NNF):")
     print(f"  - Accuracy: {nnf_accuracy:.4f}")
     print(f"  - Training Time: {nnf_training_time:.2f} seconds")
     
@@ -260,7 +345,7 @@ def main():
     print(f"  - Time Difference: {time_diff:+.2f}s (NNF - TensorFlow)")
     
     # Detailed classification report for both models
-    print(f"\nNNF Classification Report:")
+    print(f"\nNeural Network Framework (NNF) Classification Report:")
     print(classification_report(nnf_true, nnf_pred, 
                               target_names=['Setosa', 'Versicolor', 'Virginica']))
     
@@ -271,12 +356,17 @@ def main():
     # Create comparison plots
     plot_comparison(nnf_accuracy, tf_accuracy, nnf_training_time, tf_training_time)
     
+    # Create predictions comparison visualization
+    plot_predictions_comparison(X_test, y_test, nnf_pred, tf_pred, nnf_pred_probs, tf_pred_probs)
+    
     print("\nComparison completed!")
+    print("Graphs saved as 'model_comparison.png' and 'predictions_comparison.png'")
+
 
 if __name__ == "__main__":
     # Set random seeds for reproducibility
     np.random.seed(42)
     tf.random.set_seed(42)
-    random.seed(42) 
-
-    main()  
+    random.seed(42)
+    
+    main()
