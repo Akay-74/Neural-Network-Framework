@@ -1,7 +1,8 @@
 # tensor.py
 """
 Changed Matrix.py to Tensor.py bcuz of its additional functionality
-Supports scalars, lists, NumPy arrays, Pandas Series/DataFrames
+Supports scalars, lists.
+FIXED: _get_shape logic to correctly handle empty lists.
 """
 
 import random
@@ -20,18 +21,40 @@ class Tensor:
             raise TypeError(f"Unsupported type for Tensor: {type(data)}")
 
     def _convert(self, data):
-        if all(isinstance(x, (int, float)) for x in data):
+        if not isinstance(data, list):
             return data
+        # Check if all elements are non-lists (base case)
+        if all(not isinstance(x, list) for x in data):
+            if all(isinstance(x, (int, float)) for x in data):
+                return data
+            else:
+                raise TypeError(f"Mixed types not allowed in tensor row: {data}")
+        # Recurse if elements are lists
         elif all(isinstance(x, list) for x in data):
             return [self._convert(x) for x in data]
         else:
-            raise TypeError("Mixed types not allowed in tensor")
+            raise TypeError(f"Mixed list and non-list elements in tensor: {data}")
 
     def _get_shape(self, data):
-        if isinstance(data, list) and len(data) > 0:
-            return (len(data),) + self._get_shape(data[0])
-        else:
-            return ()
+        """
+        Robustly get shape of nested list structure.
+        FIXED to handle empty lists correctly.
+        """
+        if not isinstance(data, list):
+            return ()  # Scalar
+        
+        if len(data) == 0:
+            return (0,) # Empty list
+        
+        # Get shape of the first element to determine subsequent dimensions
+        first_shape = self._get_shape(data[0])
+        
+        # (Optional but good practice) Check for consistent shapes
+        # for item in data[1:]:
+        #     if self._get_shape(item) != first_shape:
+        #         raise ValueError("Inconsistent shapes in tensor data")
+                 
+        return (len(data),) + first_shape
 
     @property
     def rows(self):
@@ -45,9 +68,9 @@ class Tensor:
         """Get number of columns for 2D tensors"""
         if len(self.shape) >= 2:
             return self.shape[1]
-        elif len(self.shape) == 1:
+        elif len(self.shape) == 1: # e.g., shape (4,) is a vector
             return 1
-        return 1
+        return 1 # e.g., shape () is a scalar
 
     def __repr__(self):
         return f"Tensor(shape={self.shape}, data={self.data})"
@@ -55,12 +78,15 @@ class Tensor:
     # ---------------- Element-wise operations ----------------
     def _elem_op(self, a, b, op):
         if isinstance(a, list) and isinstance(b, list):
+            # Ensure shapes match for list-list operations
+            if len(a) != len(b):
+                raise ValueError(f"Shape mismatch for element-wise op: {len(a)} vs {len(b)}")
             return [self._elem_op(x, y, op) for x, y in zip(a, b)]
-        elif isinstance(a, list):
+        elif isinstance(a, list): # a is list, b is scalar
             return [self._elem_op(x, b, op) for x in a]
-        elif isinstance(b, list):
+        elif isinstance(b, list): # a is scalar, b is list
             return [self._elem_op(a, y, op) for y in b]
-        else:
+        else: # a is scalar, b is scalar
             return op(a, b)
 
     def __add__(self, other):
@@ -83,33 +109,48 @@ class Tensor:
 
     def __truediv__(self, other):
         if isinstance(other, Tensor):
-            return Tensor(self._elem_op(self.data, other.data, lambda a,b: a/b))
+            def safe_div(a, b):
+                if b == 0:
+                    return float('inf') if a > 0 else -float('inf') if a < 0 else float('nan')
+                return a / b
+            return Tensor(self._elem_op(self.data, other.data, safe_div))
         else:
+            if other == 0:
+                 return Tensor(self._elem_op(self.data, other, lambda a,b: float('inf') if a > 0 else -float('inf') if a < 0 else float('nan')))
             return Tensor(self._elem_op(self.data, other, lambda a,b: a/b))
 
     # ---------------- Dot and matrix operations ----------------
     def dot(self, other):
+        if not isinstance(other, Tensor):
+            raise TypeError(f"Dot product requires a Tensor, got {type(other)}")
+
         if len(self.shape) == 1 and len(other.shape) == 1:
             if self.shape != other.shape:
-                raise ValueError("Vectors must have same shape")
+                raise ValueError(f"Vectors must have same shape for dot product: {self.shape} vs {other.shape}")
             return sum(a*b for a,b in zip(self.data, other.data))
+        
         elif len(self.shape) == 2 and len(other.shape) == 2:
+            # W.dot(x) -> W=(out, in), x=(in, 1)
+            # self.shape[1] is 'in'
+            # other.shape[0] is 'in'
             if self.shape[1] != other.shape[0]:
-                raise ValueError("Incompatible shapes for matrix multiplication")
+                raise ValueError(f"Incompatible shapes for matrix multiplication: {self.shape} @ {other.shape}")
+            
             result = []
-            for i in range(self.shape[0]):
+            for i in range(self.shape[0]): # Iterate 'out'
                 row = []
-                for j in range(other.shape[1]):
-                    s = sum(self.data[i][k] * other.data[k][j] for k in range(self.shape[1]))
+                for j in range(other.shape[1]): # Iterate '1'
+                    s = sum(self.data[i][k] * other.data[k][j] for k in range(self.shape[1])) # Sum over 'in'
                     row.append(s)
                 result.append(row)
-            return Tensor(result)
+            return Tensor(result) # Result shape (out, 1)
+        
         else:
-            raise NotImplementedError("Dot not implemented for >2D tensors")
+            raise NotImplementedError(f"Dot not implemented for shapes {self.shape} and {other.shape}")
 
     def transpose(self):
         if len(self.shape) != 2:
-            raise ValueError("Transpose only for 2D tensors")
+            raise ValueError(f"Transpose only for 2D tensors, got shape {self.shape}")
         return Tensor([[self.data[j][i] for j in range(self.shape[0])] for i in range(self.shape[1])])
 
     def apply(self, func):
@@ -134,11 +175,11 @@ class Tensor:
             return recursive_sum(self.data)
         elif axis == 0:
             if len(self.shape) != 2:
-                raise ValueError("Axis 0 sum only implemented for 2D")
+                raise ValueError(f"Axis 0 sum only implemented for 2D, got shape {self.shape}")
             return Tensor([sum(self.data[i][j] for i in range(self.shape[0])) for j in range(self.shape[1])])
         elif axis == 1:
             if len(self.shape) != 2:
-                raise ValueError("Axis 1 sum only implemented for 2D")
+                raise ValueError(f"Axis 1 sum only implemented for 2D, got shape {self.shape}")
             return Tensor([sum(row) for row in self.data])
         else:
             raise ValueError("Axis >1 not implemented")
@@ -172,3 +213,4 @@ class Tensor:
     @staticmethod
     def transpose_static(tensor):
         return tensor.transpose()
+

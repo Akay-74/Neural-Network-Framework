@@ -82,35 +82,46 @@ class BinaryCrossEntropyLoss(_Loss):
             
         eps = 1e-9
         y_pred_clipped = self.y_pred.apply(lambda x: MathUtils.clip(x, eps, 1 - eps))
+        
+        # Avoid division by zero
         denominator = y_pred_clipped * y_pred_clipped.apply(lambda x: 1 - x)
+        denominator_clipped = denominator.apply(lambda x: eps if x == 0 else x)
 
-        return ((y_pred_clipped - self.y_true) / denominator) / n_elements
+        return ((y_pred_clipped - self.y_true) / denominator_clipped) / n_elements
 
 class CrossEntropyLoss(_Loss):
     """Cross Entropy loss (for multi-class classification with softmax)"""
     def forward(self, y_pred, y_true):
+        """
+        Args:
+            y_pred: (n_classes, 1) Tensor of probabilities from Softmax
+            y_true: (n_classes, 1) Tensor (one-hot encoded)
+        """
         self._validate_inputs(y_pred, y_true)
         self.y_pred = y_pred
         self.y_true = y_true
         
-        n_samples = y_pred.shape[0]
+        n_samples = y_pred.shape[0] # n_classes
         if n_samples == 0:
             return 0.0
 
         eps = 1e-9
         loss = 0.0
-        # Assumes y_true is one-hot encoded
+        # Assumes y_true is one-hot encoded (n_classes, 1)
         for i in range(n_samples):
-            for j in range(y_pred.shape[1]):
-                if y_true.data[i][j] == 1:
-                    clipped_pred = MathUtils.clip(y_pred.data[i][j], eps, 1.0)
-                    loss -= MathUtils.log(clipped_pred)
+            if y_true.data[i][0] == 1:
+                clipped_pred = MathUtils.clip(y_pred.data[i][0], eps, 1.0)
+                loss = -MathUtils.log(clipped_pred)
+                break # Found the correct class
         
-        return loss / n_samples
+        return loss # Loss is for a single sample, trainer will average
 
     def backward(self):
-        n_samples = self.y_pred.shape[0]
+        n_samples = self.y_pred.shape[0] # n_classes
         if n_samples == 0:
             return Tensor([])
-        # This is the simplified gradient for softmax output followed by cross-entropy loss
-        return (self.y_pred - self.y_true) / n_samples
+        # This is the simplified gradient for (softmax output + cross-entropy loss)
+        # Gradient is y_pred - y_true
+        # The trainer will average, so we return the gradient for the single sample
+        return (self.y_pred - self.y_true)
+

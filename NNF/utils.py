@@ -92,12 +92,7 @@ class MathUtils:
             return [val / total for val in exp_vals]
         except (TypeError, ValueError) as e:
             raise TypeError(f"Softmax requires a list of numbers. Encountered error: {e}")
-
-
-# ============================
-# MAIN FUNCTION FOR TESTING
-# ============================
-
+        
 def main():
     print("=== Testing Exception Handling in MathUtils ===\n")
 
