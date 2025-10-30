@@ -1,7 +1,8 @@
 """
 Iris Dataset Comparison: NNF vs TensorFlow (Simple Version)
-This script provides a direct, simple comparison, focusing only on
-training time, final accuracy, and continuous loss & accuracy graphs.
+This script provides a direct, simple comparison, focusing on
+training time, final accuracy, continuous loss & accuracy graphs,
+and a plot of actual vs. predicted classes.
 """
 
 import numpy as np
@@ -16,6 +17,7 @@ import time
 import random
 
 # Import refactored NNF framework
+# Make sure NNF.py is in the same directory
 from NNF import (Tensor, Dense, ReLU, Softmax, Model,
                  CrossEntropyLoss, Adam)
 
@@ -42,8 +44,9 @@ def prepare_iris_data():
     
     print(f"Features: {X_train_scaled.shape[1]}, Classes: {n_classes}")
     # Return y_test (original labels) for easy accuracy calculation
+    # Also return original X_test for the new plot, and feature names
     return (X_train_scaled, X_test_scaled, y_train, y_test,
-            y_train_onehot, y_test_onehot)
+            y_train_onehot, y_test_onehot, iris.feature_names, X_test)
 
 def convert_to_nnf_format(X, y):
     """Convert numpy arrays to NNF Tensor format (column vectors)."""
@@ -102,7 +105,14 @@ def train_nnf_model(model, X_train, y_train, X_test, y_test_original, epochs=200
     
     for epoch in range(1, epochs + 1):
         total_loss = 0
-        for x, y_true in zip(X_train, y_train):
+        
+        # Shuffle data each epoch
+        indices = list(range(n_samples))
+        random.shuffle(indices)
+        X_train_shuffled = [X_train[i] for i in indices]
+        y_train_shuffled = [y_train[i] for i in indices]
+        
+        for x, y_true in zip(X_train_shuffled, y_train_shuffled):
             # Forward pass
             y_pred = model.forward(x)
             loss = loss_fn.forward(y_pred, y_true)
@@ -144,7 +154,8 @@ def train_tensorflow_model(model, X_train, y_train, X_test, y_test_onehot, epoch
         epochs=epochs,
         batch_size=1,  # Match NNF (online learning)
         validation_data=(X_test, y_test_onehot), # Track test metrics
-        verbose=0      # Suppress TF's own logger
+        verbose=0,     # Suppress TF's own logger
+        shuffle=True
     )
     training_time = time.time() - start_time
     
@@ -163,16 +174,17 @@ def plot_training_curves(nnf_losses, tf_losses):
     print("\nGenerating training loss graph...")
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    epochs = np.arange(1, len(nnf_losses) + 1)
+    epochs_range = np.arange(1, len(nnf_losses) + 1)
     
-    ax.plot(epochs, nnf_losses, label='NNF (Adam)', color='#2E86AB', linewidth=2)
-    ax.plot(epochs, tf_losses, label='TensorFlow (Adam)', color='#A23B72', linewidth=2, linestyle='--')
+    ax.plot(epochs_range, nnf_losses, label='NNF (Adam)', color='#2E86AB', linewidth=2)
+    ax.plot(epochs_range, tf_losses, label='TensorFlow (Adam)', color='#A23B72', linewidth=2, linestyle='--')
     
     ax.set_xlabel('Epoch', fontsize=12)
     ax.set_ylabel('Loss', fontsize=12)
     ax.set_title('Training Loss Comparison (Iris Dataset)', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
+    ax.set_ylim(bottom=0) # Loss can't be negative
     
     plt.tight_layout()
     plt.savefig('iris_simple_training_curves.png', dpi=200)
@@ -184,21 +196,67 @@ def plot_accuracy_curves(nnf_accuracies, tf_accuracies):
     print("Generating training accuracy graph...")
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    epochs = np.arange(1, len(nnf_accuracies) + 1)
+    epochs_range = np.arange(1, len(nnf_accuracies) + 1)
     
-    ax.plot(epochs, nnf_accuracies, label='NNF (Adam)', color='#2E86AB', linewidth=2)
-    ax.plot(epochs, tf_accuracies, label='TensorFlow (Adam)', color='#A23B72', linewidth=2, linestyle='--')
+    ax.plot(epochs_range, nnf_accuracies, label='NNF (Adam)', color='#2E86AB', linewidth=2)
+    ax.plot(epochs_range, tf_accuracies, label='TensorFlow (Adam)', color='#A23B72', linewidth=2, linestyle='--')
     
     ax.set_xlabel('Epoch', fontsize=12)
     ax.set_ylabel('Test Accuracy', fontsize=12)
     ax.set_title('Test Accuracy Comparison (Iris Dataset)', fontsize=14, fontweight='bold')
     ax.legend(fontsize=11)
     ax.grid(True, alpha=0.3)
+    ax.set_ylim(0, 1.05) # Accuracy is between 0 and 1
     
     plt.tight_layout()
     plt.savefig('iris_simple_accuracy_curves.png', dpi=200)
     plt.show()
     print("Graph saved as 'iris_simple_accuracy_curves.png'")
+
+def plot_prediction_comparison(X_test_original, y_test, nnf_preds, tf_preds, feature_names, feature_index=0):
+    """
+    Plots Actual vs. Predicted classes against a chosen input feature.
+    X_test_original is the *unscaled* test data for easier interpretation.
+    """
+    print("\nGenerating prediction comparison graph...")
+    
+    feature_name = feature_names[feature_index]
+    X_feature = X_test_original[:, feature_index]
+    
+    # Sort all arrays based on the chosen feature for a clean line plot
+    sort_indices = np.argsort(X_feature)
+    X_sorted = X_feature[sort_indices]
+    y_actual_sorted = y_test[sort_indices]
+    nnf_preds_sorted = nnf_preds[sort_indices]
+    tf_preds_sorted = tf_preds[sort_indices]
+    
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    
+    # --- NNF Plot ---
+    ax1.plot(X_sorted, y_actual_sorted, 'o-', color='blue', label='Actual Class', markersize=5, linewidth=1, alpha=0.7)
+    ax1.plot(X_sorted, nnf_preds_sorted, 'x--', color='red', label='NNF Predicted Class', markersize=5, linewidth=1, alpha=0.7)
+    ax1.set_title('NNF: Actual vs. Predicted Class', fontsize=13)
+    ax1.set_ylabel('Class (0, 1, 2)', fontsize=11)
+    ax1.legend(loc='best')
+    ax1.grid(True, alpha=0.3)
+    ax1.set_yticks([0, 1, 2]) # Ensure ticks are only on class labels
+
+    # --- TensorFlow Plot ---
+    ax2.plot(X_sorted, y_actual_sorted, 'o-', color='blue', label='Actual Class', markersize=5, linewidth=1, alpha=0.7)
+    ax2.plot(X_sorted, tf_preds_sorted, 'x--', color='red', label='TF Predicted Class', markersize=5, linewidth=1, alpha=0.7)
+    ax2.set_title('TensorFlow: Actual vs. Predicted Class', fontsize=13)
+    ax2.set_xlabel(f'Input Feature: {feature_name} (sorted)', fontsize=12)
+    ax2.set_ylabel('Class (0, 1, 2)', fontsize=11)
+    ax2.legend(loc='best')
+    ax2.grid(True, alpha=0.3)
+    ax2.set_yticks([0, 1, 2])
+
+    fig.suptitle(f'Prediction Comparison vs. {feature_name}', fontsize=16, fontweight='bold')
+    plt.tight_layout(rect=[0, 0.03, 1, 0.96]) # Adjust for suptitle
+    plt.savefig('iris_simple_prediction_comparison.png', dpi=200)
+    plt.show()
+    print("Graph saved as 'iris_simple_prediction_comparison.png'")
+
 
 def main():
     print("=" * 70)
@@ -206,12 +264,13 @@ def main():
     print("=" * 70)
     
     # 1. Prepare data
-    (X_train, X_test, y_train, y_test,
-     y_train_onehot, y_test_onehot) = prepare_iris_data()
+    (X_train_scaled, X_test_scaled, y_train, y_test,
+     y_train_onehot, y_test_onehot,
+     feature_names, X_test_original) = prepare_iris_data()
     
     # 2. Convert data for NNF
-    X_train_nnf, y_train_nnf = convert_to_nnf_format(X_train, y_train_onehot)
-    X_test_nnf, y_test_nnf = convert_to_nnf_format(X_test, y_test_onehot)
+    X_train_nnf, y_train_nnf = convert_to_nnf_format(X_train_scaled, y_train_onehot)
+    X_test_nnf, _ = convert_to_nnf_format(X_test_scaled, y_test_onehot)
     
     # 3. Create identical models
     nnf_model = create_nnf_model()
@@ -225,7 +284,7 @@ def main():
         nnf_model, X_train_nnf, y_train_nnf, X_test_nnf, y_test, epochs
     )
     tf_losses, tf_accuracies, tf_time = train_tensorflow_model(
-        tf_model, X_train, y_train_onehot, X_test, y_test_onehot, epochs
+        tf_model, X_train_scaled, y_train_onehot, X_test_scaled, y_test_onehot, epochs
     )
     
     # 5. Get final accuracies
@@ -248,13 +307,28 @@ def main():
     plot_training_curves(nnf_losses, tf_losses)
     plot_accuracy_curves(nnf_accuracies, tf_accuracies) # New plot
     
+    # 8. Get final predictions for the new plot
+    nnf_predictions = [nnf_model.forward(x) for x in X_test_nnf]
+    nnf_pred_classes = np.array([np.argmax([val[0] for val in pred.data]) for pred in nnf_predictions])
+    
+    tf_pred_probs = tf_model.predict(X_test_scaled, verbose=0)
+    tf_pred_classes = np.argmax(tf_pred_probs, axis=1)
+    
+    # 9. Plot the new actual vs. predicted graph
+    # We use X_test_original (unscaled) for a more interpretable X-axis
+    plot_prediction_comparison(
+        X_test_original, y_test, nnf_pred_classes, tf_pred_classes, feature_names, feature_index=0
+    )
+    
     print("\n" + "=" * 70)
     print("Simple comparison completed.")
     print("=" * 70)
 
 if __name__ == "__main__":
+    # Set seeds for reproducibility
     np.random.seed(42)
     tf.random.set_seed(42)
     random.seed(42)
+    
+    # Run the main comparison
     main()
-

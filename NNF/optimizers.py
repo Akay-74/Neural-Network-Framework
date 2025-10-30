@@ -148,5 +148,3 @@ class Adam(Optimizer):
         """Reset time step (optional, usually not needed)"""
         # We don't reset m and v to maintain momentum across epochs
         pass
-
-

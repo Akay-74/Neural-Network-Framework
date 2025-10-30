@@ -4,7 +4,6 @@ Training utilities for neural networks with optimizer support
 from .model import Model
 from .losses import _Loss
 from .optimizers import Optimizer, SGD
-from .tensor import Tensor # Import Tensor for type checking
 
 
 class Trainer:
@@ -37,16 +36,16 @@ class Trainer:
             raise ValueError("Input data X cannot be empty.")
         if len(X) != len(Y):
             raise ValueError(f"Mismatch in number of samples between X ({len(X)}) and Y ({len(Y)}).")
-        if not all(isinstance(x, Tensor) for x in X) or not all(isinstance(y, Tensor) for y in Y):
-             raise TypeError("All elements in X and Y must be Tensors.")
 
     def fit(self, X, Y, verbose=True):
         """Train the model on dataset X, Y using the optimizer."""
         self._validate_dataset(X, Y)
         n_samples = len(X)
+        loss_history = [] # <-- ADD THIS LINE
         
         for epoch in range(1, self.epochs + 1):
             total_loss = 0
+            # Note: A more robust trainer would shuffle X and Y together here
             for i, (x, y_true) in enumerate(zip(X, Y)):
                 try:
                     # Forward pass
@@ -64,18 +63,21 @@ class Trainer:
                     self.model.set_params(updated_params)
                     
                 except (ValueError, TypeError, NotImplementedError) as e:
-                    print(f"Stopping training due to an error at epoch {epoch}, sample {i} (x.shape={x.shape}, y.shape={y_true.shape}): {e}")
-                    # Re-raise the exception to stop training
-                    raise e
+                    print(f"Stopping training due to an error at epoch {epoch}, sample {i}: {e}")
+                    return  # Exit the training loop
 
             avg_loss = total_loss / n_samples
+            loss_history.append(avg_loss) # <-- ADD THIS LINE
+            
             if verbose and (epoch % 10 == 0 or epoch == 1 or epoch == self.epochs):
                 print(f"Epoch {epoch}/{self.epochs} | Loss: {avg_loss:.6f}")
+                
+        return loss_history # <-- ADD THIS LINE
 
     def predict(self, X):
         """Return predictions for an input list of Tensors."""
-        if not isinstance(X, list) or not all(isinstance(x, Tensor) for x in X):
-            raise TypeError("Input X for prediction must be a list of Tensors.")
+        if not isinstance(X, list):
+            raise TypeError("Input X for prediction must be a list.")
         return [self.model.forward(x) for x in X]
 
     def evaluate(self, X, Y):
@@ -86,8 +88,6 @@ class Trainer:
         for x, y_true in zip(X, Y):
             y_pred = self.model.forward(x)
             total_loss += self.loss_fn.forward(y_pred, y_true)
-        
-        if n_samples == 0:
-            return 0.0
         return total_loss / n_samples
+
 
