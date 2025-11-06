@@ -7,7 +7,6 @@ flowchart LR
   User(["User / Data Scientist"])
   Dev(["Developer / Contributor"])
   Data(["Dataset / Data Source"])
-  CI(["CI / Maintainer"])
 
   subgraph NNFramework["Neural Network Framework"]
     UC_Create(("Create Model"))
@@ -23,7 +22,6 @@ flowchart LR
     UC_Data(("Preprocess Data"))
     UC_Monitor(("Visualize / Monitor"))
     UC_Contrib(("Contribute Code"))
-    UC_CI(("Run Unit Tests / CI"))
     UC_Doc(("Generate Documentation"))
   end
 
@@ -41,8 +39,6 @@ flowchart LR
   Dev --> UC_Opt
   Dev --> UC_Loss
   Dev --> UC_Contrib
-
-  CI --> UC_CI
 
   %% Relationships (dotted lines for includes / extends)
   UC_Train -.->|includes| UC_Fwd
