@@ -2,38 +2,57 @@
 
 ```mermaid
 classDiagram
-    %% ================= Core =================
+    %% ===== BASE CORE =====
     class Tensor {
-      - data
-      - shape
-      + dot(other)
-      + reshape(...)
-      + softmax(values)
+        +data
+        +shape
+        +dot()
+        +transpose()
+        +apply()
+        +sum()
     }
 
     class MathUtils {
-      + exp(x, terms=20)
-      + log(x, base=None)
-      + abs(x)
+        <<static>>
+        +exp()
+        +log()
+        +sigmoid()
+        +tanh()
+        +clip()
     }
 
-    MathUtils <.. Tensor : "helper math ops"
-
-    %% ================= Layers & Activations =================
+    %% ===== LAYERS =====
     class Layer {
-      <<abstract>>
-      + forward(x)
-      + backward(grad_output, lr=0.01)
+        <<abstract>>
+        +forward(x)
+        +backward(grad)
+        +get_params()
+        +set_params()
     }
 
-    class Linear {
-      - W
-      - b
-      - x
-      + forward(x)
-      + backward(grad_output, lr=0.01)
+    class Dense {
+        -W : Tensor
+        -b : Tensor
+        -dW
+        -db
+        +forward(x)
+        +backward(grad)
+        +get_params()
+        +set_params()
     }
 
+    class Sequential {
+        -layers : Layer[]
+        +forward(x)
+        +backward(grad)
+        +get_params()
+        +set_params()
+    }
+
+    Layer <|-- Dense
+    Layer <|-- Sequential
+
+    %% ===== ACTIVATIONS =====
     class ReLU
     class Sigmoid
     class Tanh
@@ -41,8 +60,8 @@ classDiagram
     class ELU
     class Swish
     class GELU
+    class Softmax
 
-    Layer <|-- Linear
     Layer <|-- ReLU
     Layer <|-- Sigmoid
     Layer <|-- Tanh
@@ -50,29 +69,46 @@ classDiagram
     Layer <|-- ELU
     Layer <|-- Swish
     Layer <|-- GELU
+    Layer <|-- Softmax
 
-    %% ================= Model & Sequential =================
-    class Sequential {
-      - layers : List[Layer]
-      + forward(x)
-      + backward(grad, lr)
-      + add(layer)
-    }
+    MathUtils --> ReLU
+    MathUtils --> Sigmoid
+    MathUtils --> Tanh
+    MathUtils --> ELU
+    MathUtils --> Swish
+    MathUtils --> GELU
+    MathUtils --> Softmax
 
+    %% ===== MODEL =====
     class Model {
-      - network : Sequential
-      + forward(x)
-      + backward(grad, lr)
+        -network : Sequential
+        +forward()
+        +backward()
+        +get_params()
+        +set_params()
     }
 
-    Sequential *-- Layer : "contains"
-    Model o-- Sequential : "wraps"
+    Model o--> Sequential
+    Model --> Layer
 
-    %% ================= Losses =================
-    class Loss {
-      <<abstract>>
-      + forward(y_pred, y_true)
-      + backward()
+    %% ===== TRAINER =====
+    class Trainer {
+        -model : Model
+        -loss_fn : _Loss
+        -optimizer : Optimizer
+        +fit()
+        +predict()
+        +evaluate()
+    }
+
+    Trainer --> Model
+    Trainer --> _Loss
+    Trainer --> Optimizer
+
+    %% ===== LOSSES =====
+    class _Loss {
+        <<abstract>>
+        -_validate_inputs()
     }
 
     class MSELoss
@@ -80,51 +116,47 @@ classDiagram
     class BinaryCrossEntropyLoss
     class CrossEntropyLoss
 
-    Loss <|-- MSELoss
-    Loss <|-- MAELoss
-    Loss <|-- BinaryCrossEntropyLoss
-    Loss <|-- CrossEntropyLoss
+    _Loss <|-- MSELoss
+    _Loss <|-- MAELoss
+    _Loss <|-- BinaryCrossEntropyLoss
+    _Loss <|-- CrossEntropyLoss
 
-    %% ================= Trainer =================
-    class Trainer {
-      - model : Model
-      - loss_fn : Loss
-      - lr : float
-      - epochs : int
-      + fit(X, Y, verbose=True)
-      + predict(X)
+    %% ===== OPTIMIZERS =====
+    class Optimizer {
+        <<abstract>>
+        -lr
+        +step()
+        +zero_grad()
     }
 
-    Trainer o-- Model : "owns & trains"
-    Trainer ..> Loss : "uses for error"
-
-    %% ================= Metrics =================
-    class Metric {
-      <<interface>>
-      + score(y_pred, y_true)
+    class SGD
+    class Momentum {
+        -velocity
+    }
+    class RMSprop {
+        -cache
+    }
+    class Adam {
+        -m
+        -v
+        -t
     }
 
+    Optimizer <|-- SGD
+    Optimizer <|-- Momentum
+    Optimizer <|-- RMSprop
+    Optimizer <|-- Adam
+    Optimizer --> Tensor
+
+    %% ===== METRICS (OPTIONAL) =====
     class Accuracy
     class Precision
     class Recall
     class F1Score
 
-    Accuracy ..|> Metric
-    Precision ..|> Metric
-    Recall ..|> Metric
-    F1Score ..|> Metric
-
-    Trainer --> Metric : "evaluates performance"
-
-    %% ================= Workflow arrows =================
-    Trainer --> Model : "forward()"
-    Model --> Sequential : "forward()"
-    Sequential --> Layer : "forward()"
-    Layer --> Tensor : "data transform"
-
-    Trainer --> Loss : "forward() compute loss"
-
-    Loss --> Model : "backward() gradients"
-    Model --> Sequential : "backward()"
-    Sequential --> Layer : "backward()"
+    %% Optional Notes
+    note for Accuracy "Not required by Model or Trainer\nOptional use only"
+    note for Precision "Not required by Model or Trainer\nOptional use only"
+    note for Recall "Not required by Model or Trainer\nOptional use only"
+    note for F1Score "Not required by Model or Trainer\nOptional + placeholder"
 ```
