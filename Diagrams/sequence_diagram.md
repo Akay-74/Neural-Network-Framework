@@ -3,12 +3,17 @@ sequenceDiagram
     autonumber
 
     participant User
+    participant Data
     participant Model
     participant Layer
     participant Trainer
-    participant Optimizer
     participant Loss
-    participant Data
+    participant Optimizer
+
+    User ->> Data: load dataset
+    activate Data
+    Data -->> User: dataset ready
+    deactivate Data
 
     User ->> Model: create model
     activate Model
@@ -27,12 +32,12 @@ sequenceDiagram
     activate Trainer
 
     loop each epoch
-        Trainer ->> Data: load batch
+        Trainer ->> Data: get next batch
         activate Data
-        Data -->> Trainer: batch ready
+        Data -->> Trainer: batch
         deactivate Data
 
-        Trainer ->> Model: forward
+        Trainer ->> Model: forward batch
         activate Model
         Model ->> Layer: forward layers
         activate Layer
@@ -46,7 +51,7 @@ sequenceDiagram
         Loss -->> Trainer: loss value
         deactivate Loss
 
-        Trainer ->> Model: backward
+        Trainer ->> Model: backward batch
         activate Model
         Model ->> Layer: backward layers
         activate Layer
@@ -82,20 +87,12 @@ sequenceDiagram
     Trainer -->> User: evaluation metrics
     deactivate Trainer
 
-    User ->> Model: save model
+    User ->> Model: predict new input
     activate Model
-    deactivate Model
-
-    User ->> Model: load model
-    activate Model
-    deactivate Model
-
-    User ->> Model: predict input
-    activate Model
-    Model ->> Layer: forward
+    Model ->> Layer: forward predict
     activate Layer
     Layer -->> Model: output
     deactivate Layer
-    Model -->> User: prediction result
+    Model -->> User: prediction
     deactivate Model
 ```
