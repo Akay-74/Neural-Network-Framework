@@ -1,6 +1,7 @@
 """
 Digits Dataset Comparison: NNF vs TensorFlow (Fair Competition)
 FIXED VERSION - Matching Iris test structure with all visualizations
+NOW INCLUDES SAVE/LOAD FUNCTIONALITY
 """
 
 import numpy as np
@@ -16,6 +17,8 @@ import time
 import random
 import seaborn as sns
 from matplotlib.colors import ListedColormap
+import os       # <-- ADDED for file checking
+import pickle   # <-- ADDED for saving/loading NNF model and history
 
 # Import refactored NNF framework
 from NNF import (Tensor, Dense, ReLU, Softmax, Model, Trainer, 
@@ -108,7 +111,15 @@ def train_nnf_model(model, X_train, y_train, epochs=100):
     n_samples = len(X_train)
     for epoch in range(1, epochs + 1):
         total_loss = 0
-        for x, y_true in zip(X_train, y_train):
+        
+        # --- ADDED: Shuffle data each epoch ---
+        indices = list(range(n_samples))
+        random.shuffle(indices)
+        X_train_shuffled = [X_train[i] for i in indices]
+        y_train_shuffled = [y_train[i] for i in indices]
+        # ---
+        
+        for x, y_true in zip(X_train_shuffled, y_train_shuffled): # Use shuffled data
             y_pred = model.forward(x)
             loss = loss_fn.forward(y_pred, y_true)
             total_loss += loss
@@ -123,8 +134,8 @@ def train_nnf_model(model, X_train, y_train, epochs=100):
         avg_loss = total_loss / n_samples
         losses.append(avg_loss)
         
-        if epoch % 10 == 0 or epoch == 1:
-            print(f"Epoch {epoch}/{epochs} | Loss: {avg_loss:.6f}")
+        if epoch % 10 == 0 or epoch == 1 or epoch == epochs:
+            print(f"  Epoch {epoch}/{epochs} | Loss: {avg_loss:.6f}")
     
     training_time = time.time() - start_time
     print(f"NNF training completed in {training_time:.2f} seconds")
@@ -140,14 +151,16 @@ def train_tensorflow_model(model, X_train, y_train, epochs=100):
         X_train, y_train,
         epochs=epochs,
         batch_size=1,  # Same as NNF (processes one sample at a time)
-        verbose=0
+        verbose=0,
+        shuffle=True # Match NNF shuffling
     )
     training_time = time.time() - start_time
     
     # Print periodic updates
-    for i in range(0, epochs, 10):
-        if i < len(history.history['loss']):
-            print(f"Epoch {i+1}/{epochs} | Loss: {history.history['loss'][i]:.6f}")
+    for epoch in [1, 10, 20, 50, 80, 100]:
+        idx = epoch - 1
+        if idx < len(history.history['loss']):
+            print(f"  Epoch {epoch}/{epochs} | Loss: {history.history['loss'][idx]:.6f}")
     
     print(f"TensorFlow training completed in {training_time:.2f} seconds")
     return history, training_time
@@ -176,22 +189,25 @@ def evaluate_tensorflow_model(model, X_test, y_test_onehot, y_test):
 
 def plot_training_curves(nnf_losses, tf_losses):
     """Plot smooth training loss curves"""
+    print("\nGenerating training loss graph...")
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    epochs = np.arange(1, len(nnf_losses) + 1)
+    epochs_range = np.arange(1, len(nnf_losses) + 1)
     
-    ax.plot(epochs, nnf_losses, label='NNF (Adam)', color='#2E86AB', linewidth=2.5, alpha=0.8)
-    ax.plot(epochs, tf_losses, label='TensorFlow (Adam)', color='#A23B72', linewidth=2.5, alpha=0.8, linestyle='--')
+    ax.plot(epochs_range, nnf_losses, label='NNF (Adam)', color='#2E86AB', linewidth=2.5, alpha=0.8)
+    ax.plot(epochs_range, tf_losses, label='TensorFlow (Adam)', color='#A23B72', linewidth=2.5, alpha=0.8, linestyle='--')
     
     ax.set_xlabel('Epoch', fontsize=13, fontweight='bold')
     ax.set_ylabel('Loss', fontsize=13, fontweight='bold')
     ax.set_title('Training Loss Comparison (Digits Dataset)', fontsize=15, fontweight='bold', pad=20)
     ax.legend(fontsize=11, frameon=True, shadow=True, loc='upper right')
     ax.grid(True, alpha=0.3, linestyle='--')
+    ax.set_ylim(bottom=0) # Loss can't be negative
     
     plt.tight_layout()
     plt.savefig('digits_training_curves.png', dpi=300, bbox_inches='tight')
     plt.show()
+    print("Graph saved as 'digits_training_curves.png'")
 
 def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
     """Plot beautiful PCA decision boundaries"""
@@ -199,12 +215,14 @@ def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
     
     # Get full dataset for better PCA
     digits = load_digits()
-    X_full = scaler.transform(digits.data)
+    # Need to scale the full dataset *using the scaler fitted on training data*
+    X_full = scaler.transform(digits.data) 
     
-    # Fit PCA
+    # Fit PCA on the (scaled) full dataset
     pca = PCA(n_components=2)
     X_pca = pca.fit_transform(X_full)
-    X_test_pca = pca.transform(X_test)
+    # Transform the (scaled) test set using the same PCA
+    X_test_pca = pca.transform(X_test) 
     
     # Create mesh
     h = 0.5  # step size (larger for digits as feature space is bigger)
@@ -215,17 +233,20 @@ def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
     
     # Inverse transform to original space
     mesh_points_pca = np.c_[xx.ravel(), yy.ravel()]
-    mesh_points_original = pca.inverse_transform(mesh_points_pca)
+    # This goes from 2D PCA space back to 64D *scaled* space
+    mesh_points_scaled = pca.inverse_transform(mesh_points_pca)
     
     # Predict with both models
-    tf_preds = tf_model.predict(mesh_points_original, verbose=0)
+    # TF model was trained on scaled data
+    tf_preds = tf_model.predict(mesh_points_scaled, verbose=0) 
     tf_classes = np.argmax(tf_preds, axis=1).reshape(xx.shape)
     
     print("Computing NNF predictions for decision boundary...")
     nnf_classes = []
-    for i, pt in enumerate(mesh_points_original):
+    # NNF model was also trained on scaled data
+    for i, pt in enumerate(mesh_points_scaled): 
         if i % 500 == 0:
-            print(f"  Processing point {i}/{len(mesh_points_original)}")
+            print(f"   Processing point {i}/{len(mesh_points_scaled)}")
         x_tensor = Tensor([[float(v)] for v in pt])
         pred = nnf_model.forward(x_tensor)
         pred_class = np.argmax([p[0] for p in pred.data])
@@ -246,8 +267,8 @@ def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
         mask = y_test == class_idx
         if mask.sum() > 0:
             ax1.scatter(X_test_pca[mask, 0], X_test_pca[mask, 1],
-                       c=[colors[class_idx]], label=f'Digit {class_idx}', 
-                       s=50, edgecolors='black', linewidth=1, alpha=0.8)
+                        c=[colors[class_idx]], label=f'Digit {class_idx}', 
+                        s=50, edgecolors='black', linewidth=1, alpha=0.8)
     ax1.set_xlabel('First Principal Component', fontsize=12, fontweight='bold')
     ax1.set_ylabel('Second Principal Component', fontsize=12, fontweight='bold')
     ax1.set_title('NNF Decision Boundary', fontsize=14, fontweight='bold', pad=15)
@@ -262,8 +283,8 @@ def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
         mask = y_test == class_idx
         if mask.sum() > 0:
             ax2.scatter(X_test_pca[mask, 0], X_test_pca[mask, 1],
-                       c=[colors[class_idx]], label=f'Digit {class_idx}', 
-                       s=50, edgecolors='black', linewidth=1, alpha=0.8)
+                        c=[colors[class_idx]], label=f'Digit {class_idx}', 
+                        s=50, edgecolors='black', linewidth=1, alpha=0.8)
     ax2.set_xlabel('First Principal Component', fontsize=12, fontweight='bold')
     ax2.set_ylabel('Second Principal Component', fontsize=12, fontweight='bold')
     ax2.set_title('TensorFlow Decision Boundary', fontsize=14, fontweight='bold', pad=15)
@@ -273,9 +294,12 @@ def plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler):
     plt.tight_layout()
     plt.savefig('digits_decision_boundaries.png', dpi=300, bbox_inches='tight')
     plt.show()
+    print("Graph saved as 'digits_decision_boundaries.png'")
+
 
 def plot_confusion_matrices(nnf_true, nnf_pred, tf_true, tf_pred):
     """Plot confusion matrices side by side"""
+    print("\nGenerating confusion matrices...")
     class_names = [str(i) for i in range(10)]
     
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
@@ -301,9 +325,11 @@ def plot_confusion_matrices(nnf_true, nnf_pred, tf_true, tf_pred):
     plt.tight_layout()
     plt.savefig('digits_confusion_matrices.png', dpi=300, bbox_inches='tight')
     plt.show()
+    print("Graph saved as 'digits_confusion_matrices.png'")
 
 def plot_metrics_comparison(nnf_acc, tf_acc, nnf_time, tf_time):
     """Beautiful metrics comparison"""
+    print("\nGenerating metrics comparison graph...")
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
     models = ['NNF\n(Adam)', 'TensorFlow\n(Adam)']
@@ -321,8 +347,8 @@ def plot_metrics_comparison(nnf_acc, tf_acc, nnf_time, tf_time):
     for bar, acc in zip(bars1, [nnf_acc, tf_acc]):
         height = bar.get_height()
         axes[0].text(bar.get_x() + bar.get_width()/2., height + 0.02,
-                    f'{acc:.4f}', ha='center', va='bottom', 
-                    fontsize=12, fontweight='bold')
+                     f'{acc:.4f}', ha='center', va='bottom', 
+                     fontsize=12, fontweight='bold')
     
     # Training Time
     bars2 = axes[1].bar(models, [nnf_time, tf_time], color=colors, 
@@ -332,33 +358,44 @@ def plot_metrics_comparison(nnf_acc, tf_acc, nnf_time, tf_time):
     axes[1].grid(axis='y', alpha=0.3, linestyle='--')
     axes[1].set_axisbelow(True)
     
+    # Add buffer to time plot
+    max_time = max(nnf_time, tf_time)
+    axes[1].set_ylim(0, max_time * 1.15)
+    
     for bar, t in zip(bars2, [nnf_time, tf_time]):
         height = bar.get_height()
-        axes[1].text(bar.get_x() + bar.get_width()/2., height + 0.05,
-                    f'{t:.2f}s', ha='center', va='bottom', 
-                    fontsize=12, fontweight='bold')
+        axes[1].text(bar.get_x() + bar.get_width()/2., height + (max_time * 0.02),
+                     f'{t:.2f}s', ha='center', va='bottom', 
+                     fontsize=12, fontweight='bold')
     
     plt.tight_layout()
     plt.savefig('digits_metrics_comparison.png', dpi=300, bbox_inches='tight')
     plt.show()
+    print("Graph saved as 'digits_metrics_comparison.png'")
 
-def plot_sample_predictions(X_test, y_test, nnf_pred, tf_pred):
+
+def plot_sample_predictions(X_test, y_test, nnf_pred, tf_pred, scaler):
     """Plot sample digits with predictions"""
+    print("\nGenerating sample prediction graph...")
     fig, axes = plt.subplots(2, 10, figsize=(15, 4))
+    
+    # --- MODIFIED: Use *unscaled* data for plotting ---
+    # Inverse transform the test data to get original 0-16 scale images
+    X_test_unscaled = scaler.inverse_transform(X_test)
     
     for i in range(10):
         # Reshape from 64 features to 8x8 image
-        img = X_test[i].reshape(8, 8)
+        img = X_test_unscaled[i].reshape(8, 8)
         
         # NNF predictions
-        axes[0, i].imshow(img, cmap='gray')
+        axes[0, i].imshow(img, cmap='gray_r') # Use gray_r for black on white
         axes[0, i].axis('off')
         color = 'green' if nnf_pred[i] == y_test[i] else 'red'
         axes[0, i].set_title(f'P:{nnf_pred[i]}\nT:{y_test[i]}', 
                             fontsize=9, color=color, fontweight='bold')
         
         # TensorFlow predictions
-        axes[1, i].imshow(img, cmap='gray')
+        axes[1, i].imshow(img, cmap='gray_r') # Use gray_r for black on white
         axes[1, i].axis('off')
         color = 'green' if tf_pred[i] == y_test[i] else 'red'
         axes[1, i].set_title(f'P:{tf_pred[i]}\nT:{y_test[i]}', 
@@ -372,6 +409,7 @@ def plot_sample_predictions(X_test, y_test, nnf_pred, tf_pred):
     plt.tight_layout()
     plt.savefig('digits_sample_predictions.png', dpi=300, bbox_inches='tight')
     plt.show()
+    print("Graph saved as 'digits_sample_predictions.png'")
 
 def main():
     print("=" * 70)
@@ -392,15 +430,73 @@ def main():
     
     epochs = 100
     print(f"\nTraining Parameters:")
-    print(f"  Architecture: [64 -> 128 -> 64 -> 10]")
-    print(f"  Optimizer: Adam (lr=0.01, beta1=0.9, beta2=0.999)")
-    print(f"  Loss: Cross-Entropy")
-    print(f"  Epochs: {epochs}")
-    print(f"  Batch Size: 1 (online learning)")
+    print(f"   Architecture: [64 -> 128 -> 64 -> 10]")
+    print(f"   Optimizer: Adam (lr=0.01, beta1=0.9, beta2=0.999)")
+    print(f"   Loss: Cross-Entropy")
+    print(f"   Epochs: {epochs}")
+    print(f"   Batch Size: 1 (online learning)")
     
-    # Train models
-    nnf_time, nnf_losses = train_nnf_model(nnf_model, X_train_nnf, y_train_nnf, epochs)
-    tf_history, tf_time = train_tensorflow_model(tf_model, X_train, y_train_onehot, epochs)
+    # --- NEW: Define file paths ---
+    NNF_MODEL_FILE = 'nnf_digits_model.pkl'
+    TF_MODEL_FILE = 'tf_digits_model.keras' # Use .keras format
+    HISTORY_FILE = 'digits_training_history.pkl'
+    
+    # --- NEW: Check if saved models and history exist ---
+    if (os.path.exists(NNF_MODEL_FILE) and
+        os.path.exists(TF_MODEL_FILE) and
+        os.path.exists(HISTORY_FILE)):
+        
+        print(f"\nLoading saved models and history from files...")
+        
+        # Load NNF model
+        with open(NNF_MODEL_FILE, 'rb') as f:
+            nnf_model = pickle.load(f)
+        print(f"Loaded NNF model from {NNF_MODEL_FILE}")
+        
+        # Load TF model
+        tf_model = tf.keras.models.load_model(TF_MODEL_FILE)
+        print(f"Loaded TensorFlow model from {TF_MODEL_FILE}")
+        
+        # Load training history
+        with open(HISTORY_FILE, 'rb') as f:
+            history_data = pickle.load(f)
+        
+        nnf_time = history_data['nnf_time']
+        nnf_losses = history_data['nnf_losses']
+        tf_time = history_data['tf_time']
+        tf_losses = history_data['tf_losses'] # Load the list directly
+        print(f"Loaded training history from {HISTORY_FILE}")
+    
+    else:
+        print(f"\nSaved models/history not found. Running full training...")
+        
+        # Train models
+        nnf_time, nnf_losses = train_nnf_model(nnf_model, X_train_nnf, y_train_nnf, epochs)
+        tf_history, tf_time = train_tensorflow_model(tf_model, X_train, y_train_onehot, epochs)
+        tf_losses = tf_history.history['loss'] # Get the list
+        
+        # --- NEW: Save the models and history ---
+        print("\nSaving models and history to disk...")
+        
+        # Save NNF model
+        with open(NNF_MODEL_FILE, 'wb') as f:
+            pickle.dump(nnf_model, f)
+        print(f"Saved NNF model to {NNF_MODEL_FILE}")
+        
+        # Save TF model
+        tf_model.save(TF_MODEL_FILE)
+        print(f"Saved TensorFlow model to {TF_MODEL_FILE}")
+        
+        # Save training history
+        history_data = {
+            'nnf_time': nnf_time,
+            'nnf_losses': nnf_losses,
+            'tf_time': tf_time,
+            'tf_losses': tf_losses # Save the list
+        }
+        with open(HISTORY_FILE, 'wb') as f:
+            pickle.dump(history_data, f)
+        print(f"Saved training history to {HISTORY_FILE}")
     
     # Evaluate models
     nnf_acc, nnf_pred, nnf_true = evaluate_nnf_model(nnf_model, X_test_nnf, y_test_nnf)
@@ -411,42 +507,43 @@ def main():
     print("FINAL RESULTS")
     print("=" * 70)
     print(f"NNF:")
-    print(f"  Accuracy: {nnf_acc:.4f} ({nnf_acc*100:.2f}%)")
-    print(f"  Training Time: {nnf_time:.2f}s")
+    print(f"   Accuracy: {nnf_acc:.4f} ({nnf_acc*100:.2f}%)")
+    print(f"   Training Time: {nnf_time:.2f}s")
     
     print(f"\nTensorFlow:")
-    print(f"  Accuracy: {tf_acc:.4f} ({tf_acc*100:.2f}%)")
-    print(f"  Training Time: {tf_time:.2f}s")
+    print(f"   Accuracy: {tf_acc:.4f} ({tf_acc*100:.2f}%)")
+    print(f"   Training Time: {tf_time:.2f}s")
     
     print(f"\nDifference:")
-    print(f"  Accuracy: {(nnf_acc - tf_acc)*100:+.2f}% (NNF - TF)")
+    print(f"   Accuracy: {(nnf_acc - tf_acc)*100:+.2f}% (NNF - TF)")
     if nnf_time > tf_time:
-        print(f"  Speed: {(nnf_time/tf_time):.2f}x slower (TF is faster)")
+        print(f"   Speed: {(nnf_time/tf_time):.2f}x slower (TF is faster)")
     else:
-        print(f"  Speed: {(tf_time/nnf_time):.2f}x faster (NNF is faster)")
+        print(f"   Speed: {(tf_time/nnf_time):.2f}x faster (NNF is faster)")
     
     print(f"\nNNF Classification Report:")
     print(classification_report(nnf_true, nnf_pred, 
-                              target_names=[str(i) for i in range(10)]))
+                                target_names=[str(i) for i in range(10)]))
     
     print(f"\nTensorFlow Classification Report:")
     print(classification_report(y_test, tf_pred, 
-                              target_names=[str(i) for i in range(10)]))
+                                target_names=[str(i) for i in range(10)]))
     
     # Create visualizations
-    plot_training_curves(nnf_losses, tf_history.history['loss'])
+    plot_training_curves(nnf_losses, tf_losses) # Use the loaded/saved tf_losses
     plot_pca_decision_boundaries(X_test, y_test, nnf_model, tf_model, scaler)
     plot_confusion_matrices(nnf_true, nnf_pred, y_test, tf_pred)
     plot_metrics_comparison(nnf_acc, tf_acc, nnf_time, tf_time)
-    plot_sample_predictions(X_test, y_test, nnf_pred, tf_pred)
+    # Pass scaler to un-scale images for plotting
+    plot_sample_predictions(X_test, y_test, nnf_pred, tf_pred, scaler) 
     
     print("\n" + "=" * 70)
     print("Comparison completed! Graphs saved:")
-    print("  - digits_training_curves.png")
-    print("  - digits_decision_boundaries.png")
-    print("  - digits_confusion_matrices.png")
-    print("  - digits_metrics_comparison.png")
-    print("  - digits_sample_predictions.png")
+    print("   - digits_training_curves.png")
+    print("   - digits_decision_boundaries.png")
+    print("   - digits_confusion_matrices.png")
+    print("   - digits_metrics_comparison.png")
+    print("   - digits_sample_predictions.png")
     print("=" * 70)
 
 if __name__ == "__main__":
