@@ -1,3 +1,5 @@
+## NNF (Neural Network Framework) – State Machine Diagram (Training Process)
+
 ```mermaid
 stateDiagram-v2
     [*] --> Init

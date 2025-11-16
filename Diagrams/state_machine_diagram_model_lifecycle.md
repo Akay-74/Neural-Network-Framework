@@ -1,3 +1,5 @@
+## NNF (Neural Network Framework) – State Machine Diagram (Model Lifecycle)
+
 ```mermaid
 stateDiagram-v2
     [*] --> Created

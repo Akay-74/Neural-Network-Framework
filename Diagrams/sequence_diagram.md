@@ -1,3 +1,5 @@
+## NNF (Neural Network Framework) – Sequence Diagram
+
 ```mermaid
 sequenceDiagram
     autonumber

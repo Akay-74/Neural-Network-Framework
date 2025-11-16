@@ -1,3 +1,5 @@
+## NNF (Neural Network Framework) – State Machine Diagram (Layer Behaviour)
+
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
