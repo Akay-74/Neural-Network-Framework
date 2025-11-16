@@ -1,162 +1,316 @@
-## NNF (Neural Network Framework) – Class Diagram
+@startuml
+skinparam classAttributeIconSize 0
+left to right direction
 
-```mermaid
-classDiagram
-    %% ===== BASE CORE =====
-    class Tensor {
-        +data
-        +shape
-        +dot()
-        +transpose()
-        +apply()
-        +sum()
-    }
+' ===== BASE CORE =====
+class Tensor {
+    +data
+    +shape: tuple
+    +rows: int
+    +cols: int
+    +__init__(data)
+    +_convert(data)
+    +_get_shape(data)
+    +__add__(other)
+    +__sub__(other)
+    +__mul__(other)
+    +__truediv__(other)
+    +dot(other)
+    +transpose()
+    +apply(func)
+    +sum(axis)
+    +get_shape()
+    {static} +random(rows, cols, low, high)
+    +scalar_multiply(scalar)
+}
 
-    class MathUtils {
-        <<static>>
-        +exp()
-        +log()
-        +sigmoid()
-        +tanh()
-        +clip()
-    }
+class MathUtils {
+    {static} +exp(x, terms)
+    {static} +log(x, base, max_iter, tol)
+    {static} +abs(x)
+    {static} +clip(x, min_val, max_val)
+    {static} +sigmoid(x)
+    {static} +tanh(x)
+    {static} +relu(x)
+    {static} +leaky_relu(x, alpha)
+    {static} +softmax(values)
+}
 
-    %% ===== LAYERS =====
-    class Layer {
-        <<abstract>>
-        +forward(x)
-        +backward(grad)
-        +get_params()
-        +set_params()
-    }
+' ===== LAYERS =====
+abstract class Layer {
+    {abstract} +forward(x)
+    {abstract} +backward(grad_output)
+    +get_params()
+    +set_params(params)
+}
 
-    class Dense {
-        -W : Tensor
-        -b : Tensor
-        -dW
-        -db
-        +forward(x)
-        +backward(grad)
-        +get_params()
-        +set_params()
-    }
+class Dense {
+    -W: Tensor
+    -b: Tensor
+    -dW: Tensor
+    -db: Tensor
+    -in_features: int
+    -out_features: int
+    -use_bias: bool
+    -x: Tensor
+    +__init__(in_features, out_features, use_bias)
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+    +get_params(): list
+    +set_params(params)
+}
 
-    class Sequential {
-        -layers : Layer[]
-        +forward(x)
-        +backward(grad)
-        +get_params()
-        +set_params()
-    }
+class Sequential {
+    -layers: list[Layer]
+    +__init__(*layers)
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+    +get_params(): list
+    +set_params(params)
+}
 
-    Layer <|-- Dense
-    Layer <|-- Sequential
+note right of Dense
+    Linear is an alias
+    for Dense
+end note
 
-    %% ===== ACTIVATIONS =====
-    class ReLU
-    class Sigmoid
-    class Tanh
-    class LeakyReLU
-    class ELU
-    class Swish
-    class GELU
-    class Softmax
+Layer <|-- Dense
+Layer <|-- Sequential
 
-    Layer <|-- ReLU
-    Layer <|-- Sigmoid
-    Layer <|-- Tanh
-    Layer <|-- LeakyReLU
-    Layer <|-- ELU
-    Layer <|-- Swish
-    Layer <|-- GELU
-    Layer <|-- Softmax
+Sequential o--> "0..*" Layer
 
-    MathUtils --> ReLU
-    MathUtils --> Sigmoid
-    MathUtils --> Tanh
-    MathUtils --> ELU
-    MathUtils --> Swish
-    MathUtils --> GELU
-    MathUtils --> Softmax
+' ===== ACTIVATIONS =====
+class ReLU {
+    -x: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    %% ===== MODEL =====
-    class Model {
-        -network : Sequential
-        +forward()
-        +backward()
-        +get_params()
-        +set_params()
-    }
+class Sigmoid {
+    -out: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    Model o--> Sequential
-    Model --> Layer
+class Tanh {
+    -out: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    %% ===== TRAINER =====
-    class Trainer {
-        -model : Model
-        -loss_fn : _Loss
-        -optimizer : Optimizer
-        +fit()
-        +predict()
-        +evaluate()
-    }
+class LeakyReLU {
+    -alpha: float
+    -x: Tensor
+    +__init__(alpha)
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    Trainer --> Model
-    Trainer --> _Loss
-    Trainer --> Optimizer
+class ELU {
+    -alpha: float
+    -x: Tensor
+    +__init__(alpha)
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    %% ===== LOSSES =====
-    class _Loss {
-        <<abstract>>
-        -_validate_inputs()
-    }
+class Swish {
+    -x: Tensor
+    -sigmoid_x: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    class MSELoss
-    class MAELoss
-    class BinaryCrossEntropyLoss
-    class CrossEntropyLoss
+class GELU {
+    -x: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    _Loss <|-- MSELoss
-    _Loss <|-- MAELoss
-    _Loss <|-- BinaryCrossEntropyLoss
-    _Loss <|-- CrossEntropyLoss
+class Softmax {
+    -x: Tensor
+    -out: Tensor
+    +forward(x): Tensor
+    +backward(grad_output): Tensor
+}
 
-    %% ===== OPTIMIZERS =====
-    class Optimizer {
-        <<abstract>>
-        -lr
-        +step()
-        +zero_grad()
-    }
+Layer <|-- ReLU
+Layer <|-- Sigmoid
+Layer <|-- Tanh
+Layer <|-- LeakyReLU
+Layer <|-- ELU
+Layer <|-- Swish
+Layer <|-- GELU
+Layer <|-- Softmax
 
-    class SGD
-    class Momentum {
-        -velocity
-    }
-    class RMSprop {
-        -cache
-    }
-    class Adam {
-        -m
-        -v
-        -t
-    }
+ReLU ..> Tensor: uses
+Sigmoid ..> Tensor: uses
+Sigmoid ..> MathUtils: uses
+Tanh ..> Tensor: uses
+Tanh ..> MathUtils: uses
+LeakyReLU ..> Tensor: uses
+ELU ..> Tensor: uses
+ELU ..> MathUtils: uses
+Swish ..> Tensor: uses
+Swish ..> MathUtils: uses
+GELU ..> Tensor: uses
+GELU ..> MathUtils: uses
+Softmax ..> Tensor: uses
+Softmax ..> MathUtils: uses
 
-    Optimizer <|-- SGD
-    Optimizer <|-- Momentum
-    Optimizer <|-- RMSprop
-    Optimizer <|-- Adam
-    Optimizer --> Tensor
+' ===== MODEL =====
+class Model {
+    -network: Sequential
+    +__init__(layers)
+    +forward(x): Tensor
+    +backward(grad): Tensor
+    +get_params(): list
+    +set_params(params)
+}
 
-    %% ===== METRICS (OPTIONAL) =====
-    class Accuracy
-    class Precision
-    class Recall
-    class F1Score
+Model *--> Sequential
+Model ..> Layer: validates
 
-    %% Optional Notes
-    note for Accuracy "Not required by Model or Trainer\nOptional use only"
-    note for Precision "Not required by Model or Trainer\nOptional use only"
-    note for Recall "Not required by Model or Trainer\nOptional use only"
-    note for F1Score "Not required by Model or Trainer\nOptional + placeholder"
-```
+' ===== LOSSES =====
+abstract class _Loss {
+    #_validate_inputs(y_pred, y_true)
+    {abstract} +forward(y_pred, y_true): float
+    {abstract} +backward(): Tensor
+}
+
+class MSELoss {
+    -y_pred: Tensor
+    -y_true: Tensor
+    +forward(y_pred, y_true): float
+    +backward(): Tensor
+}
+
+class MAELoss {
+    -y_pred: Tensor
+    -y_true: Tensor
+    +forward(y_pred, y_true): float
+    +backward(): Tensor
+}
+
+class BinaryCrossEntropyLoss {
+    -y_pred: Tensor
+    -y_true: Tensor
+    +forward(y_pred, y_true): float
+    +backward(): Tensor
+}
+
+class CrossEntropyLoss {
+    -y_pred: Tensor
+    -y_true: Tensor
+    +forward(y_pred, y_true): float
+    +backward(): Tensor
+}
+
+_Loss <|-- MSELoss
+_Loss <|-- MAELoss
+_Loss <|-- BinaryCrossEntropyLoss
+_Loss <|-- CrossEntropyLoss
+
+MSELoss ..> Tensor: uses
+MAELoss ..> Tensor: uses
+MAELoss ..> MathUtils: uses
+BinaryCrossEntropyLoss ..> Tensor: uses
+BinaryCrossEntropyLoss ..> MathUtils: uses
+CrossEntropyLoss ..> Tensor: uses
+CrossEntropyLoss ..> MathUtils: uses
+
+' ===== OPTIMIZERS =====
+abstract class Optimizer {
+    #lr: float
+    +__init__(lr)
+    {abstract} +step(params): list
+    +zero_grad()
+}
+
+class SGD {
+    +__init__(lr)
+    +step(params): list
+}
+
+class Momentum {
+    -momentum: float
+    -velocity: dict
+    +__init__(lr, momentum)
+    +step(params): list
+}
+
+class RMSprop {
+    -rho: float
+    -epsilon: float
+    -cache: dict
+    +__init__(lr, rho, epsilon)
+    +step(params): list
+}
+
+class Adam {
+    -beta1: float
+    -beta2: float
+    -epsilon: float
+    -m: dict
+    -v: dict
+    -t: int
+    +__init__(lr, beta1, beta2, epsilon)
+    +step(params): list
+    +zero_grad()
+}
+
+Optimizer <|-- SGD
+Optimizer <|-- Momentum
+Optimizer <|-- RMSprop
+Optimizer <|-- Adam
+
+Optimizer ..> Tensor: operates on
+SGD ..> Tensor: uses
+Momentum ..> Tensor: uses
+RMSprop ..> Tensor: uses
+Adam ..> Tensor: uses
+
+' ===== TRAINER =====
+class Trainer {
+    -model: Model
+    -loss_fn: _Loss
+    -optimizer: Optimizer
+    -epochs: int
+    +__init__(model, loss_fn, optimizer, epochs)
+    -_validate_dataset(X, Y)
+    +fit(X, Y, verbose): list
+    +predict(X): list
+    +evaluate(X, Y): float
+}
+
+Trainer --> Model
+Trainer --> _Loss
+Trainer --> Optimizer
+
+' ===== METRICS =====
+class Accuracy {
+    +score(y_pred, y_true): int
+}
+
+class Precision {
+    +score(y_pred, y_true): tuple
+}
+
+class Recall {
+    +score(y_pred, y_true): tuple
+}
+
+class F1Score {
+    +score(y_pred, y_true): float
+}
+
+Accuracy ..> Tensor: uses
+Precision ..> Tensor: uses
+Recall ..> Tensor: uses
+F1Score ..> Tensor: uses
+
+note bottom of Trainer
+    Returns loss_history
+    from fit() method
+end note
+@enduml
